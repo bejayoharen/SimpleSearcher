@@ -35,6 +35,9 @@ func main() {
 	// get all the urls (second argument in CSV):
 	var urls []string
 	for i,l := range lines {
+		if i == 0 {
+			continue // skip the first line
+		}
 		v := strings.Split(l,",")
 		if len(v) != 6 {
 			fmt.Println("Could not parse line in URL file:", i)
@@ -42,7 +45,7 @@ func main() {
 		}
 		u := v[1]
 		if strings.HasPrefix(u,"\"") && strings.HasSuffix(u,"\"") {
-			u = u[1:len(u)-2]
+			u = u[1:len(u)-1]
 		}
 		urls = append(urls,u)
 	}
@@ -180,7 +183,8 @@ func performSearch(url string, re *regexp.Regexp) SearchResult {
         }
 
 	count := 0
-	found := re.FindIndex(d)
+	found := re.FindAllIndex(d,-1)
+	//fmt.Println( found )
 	if found == nil {
 		count = 0
 	} else {
