@@ -1,20 +1,21 @@
 package main
 
 import (
-	"os"
+	"bufio"
+	"errors"
 	"fmt"
 	"io/ioutil"
-	"errors"
-	"bufio"
-	"strings"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 const (
-	infile = "./url.txt"
-	outfile = "./results.txt"
+	infile     = "./url.txt"
+	outfile    = "./results.txt"
+	maxThreads = 20
 )
 
 func main() {
@@ -34,20 +35,20 @@ func main() {
 
 	// get all the urls (second argument in CSV):
 	var urls []string
-	for i,l := range lines {
+	for i, l := range lines {
 		if i == 0 {
 			continue // skip the first line
 		}
-		v := strings.Split(l,",")
+		v := strings.Split(l, ",")
 		if len(v) != 6 {
 			fmt.Println("Could not parse line in URL file:", i)
 			return
 		}
 		u := v[1]
-		if strings.HasPrefix(u,"\"") && strings.HasSuffix(u,"\"") {
-			u = u[1:len(u)-1]
+		if strings.HasPrefix(u, "\"") && strings.HasSuffix(u, "\"") {
+			u = u[1 : len(u)-1]
 		}
-		urls = append(urls,u)
+		urls = append(urls, u)
 	}
 
 	// open our outputfile
@@ -59,15 +60,15 @@ func main() {
 	defer out.Close()
 
 	// now process the search
-	sr := parallelSearch( urls, searchTerm, 20 )
+	sr := parallelSearch(urls, searchTerm, maxThreads)
 
 	// and output the results
 	bufout := bufio.NewWriter(out)
 	for _, r := range sr {
 		if r.Error == nil {
-			bufout.WriteString( "\"" + r.URL + "\"," + strconv.Itoa(r.Count) + ",\n" )
+			bufout.WriteString("\"" + r.URL + "\"," + strconv.Itoa(r.Count) + ",\n")
 		} else {
-			bufout.WriteString( "\"" + r.URL + "\"," + strconv.Itoa(r.Count) + "," + r.Error.Error() + "\n" )
+			bufout.WriteString("\"" + r.URL + "\"," + strconv.Itoa(r.Count) + "," + r.Error.Error() + "\n")
 		}
 	}
 	err = bufout.Flush()
@@ -79,7 +80,7 @@ func main() {
 
 func usage() {
 	fmt.Println("Usage:")
-	fmt.Println("\t"+os.Args[0]+" SEARCH_TERM")
+	fmt.Println("\t" + os.Args[0] + " SEARCH_TERM")
 }
 
 // opens a file and returns the entire contents split as an array
@@ -99,29 +100,29 @@ func readLinesFromFiles(path string) ([]string, error) {
 }
 
 type SearchResult struct {
-	URL    string
-	Count  int
-	Error  error
+	URL   string
+	Count int
+	Error error
 }
 
 // Fetches all the given urls, up to maxThreads in parallel,
 // and processes them.
 // FIXME: searchTerm is simply added naively to a regexp, so it should not contain any regexp characters
-func parallelSearch( urls []string, searchTerm string, maxThreads int ) []SearchResult {
-	fanout   := make(chan string, maxThreads)
-	fanin    := make(chan SearchResult)
-        done     := make(chan []SearchResult)
+func parallelSearch(urls []string, searchTerm string, maxThreads int) []SearchResult {
+	fanout := make(chan string, maxThreads)
+	fanin := make(chan SearchResult)
+	done := make(chan []SearchResult)
 
 	regexp := regexp.MustCompile("(?i)\\b+" + searchTerm + "\\b+")
 
 	// Collect data
 	go func() {
 		i := 0
-		sr := make([]SearchResult,0,len(urls))
+		sr := make([]SearchResult, 0, len(urls))
 		for r := range fanin {
 			//fmt.Println( r.URL, r.Count, r.Error )
 			i++
-			sr = append( sr, r )
+			sr = append(sr, r)
 			if i == len(urls) {
 				break
 			}
@@ -130,7 +131,7 @@ func parallelSearch( urls []string, searchTerm string, maxThreads int ) []Search
 	}()
 
 	// create worker threads:
-	for i := 0; i < maxThreads ; i++ {
+	for i := 0; i < maxThreads; i++ {
 		go func() {
 			for u := range fanout {
 				fanin <- performSearch(u, regexp)
@@ -144,7 +145,7 @@ func parallelSearch( urls []string, searchTerm string, maxThreads int ) []Search
 	close(fanout)
 
 	// wait for completion and get results
-	sr := <- done
+	sr := <-done
 
 	// close channels
 	close(fanin)
@@ -156,34 +157,34 @@ func parallelSearch( urls []string, searchTerm string, maxThreads int ) []Search
 // fetches the given URL and finds the given regular expression on it.
 func performSearch(url string, re *regexp.Regexp) SearchResult {
 	response, err := http.Get(url)
-        if err != nil {
-		return SearchResult {
-			URL: url,
+	if err != nil {
+		return SearchResult{
+			URL:   url,
 			Count: -1,
 			Error: err,
 		}
-        }
-        defer response.Body.Close()
+	}
+	defer response.Body.Close()
 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return SearchResult {
-			URL: url,
+		return SearchResult{
+			URL:   url,
 			Count: -1,
 			Error: errors.New("Unexpected Status Code: " + strconv.Itoa(response.StatusCode)),
 		}
 	}
 
 	d, err := ioutil.ReadAll(response.Body)
-        if err != nil {
-		return SearchResult {
-			URL: url,
+	if err != nil {
+		return SearchResult{
+			URL:   url,
 			Count: -1,
 			Error: err,
 		}
-        }
+	}
 
 	count := 0
-	found := re.FindAllIndex(d,-1)
+	found := re.FindAllIndex(d, -1)
 	//fmt.Println( found )
 	if found == nil {
 		count = 0
@@ -191,9 +192,8 @@ func performSearch(url string, re *regexp.Regexp) SearchResult {
 		count = len(found)
 	}
 
-
-	return SearchResult {
-		URL: url,
+	return SearchResult{
+		URL:   url,
 		Count: count,
 		Error: nil,
 	}
