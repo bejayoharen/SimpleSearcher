@@ -21,7 +21,7 @@ Given a list of urls in url.txt, write a program that will fetch each page and d
 * The complete input file is read into memory at once and the output is read once after all data is colleted. If the files were huge, it would be better to read them a few hundred at a time, but I'm guessing that wasn't what was being tested.
 * I only used Go's built-in packages and datastructures.
 * There's no console output except if there's an error, and it doesn't write to the file until it's done, so it might seem like it's doing nothing for a while.a Uncomment the code at line 122 if you want to see what it's doing a bit.
-* The searchterm passed in as a commandline argument is just inserted into a regex. Obviously, this could cause problems.
+* The searchterm passed in as a commandline argument is just inserted naively into a regex. Obviously, this could cause problems if, eg, the searchterm has special characters.
 
 ## Compile and run
 

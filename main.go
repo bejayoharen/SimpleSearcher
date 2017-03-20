@@ -26,14 +26,14 @@ func main() {
 	}
 	searchTerm := os.Args[1]
 
-	// open and read file into strings
+	// open and read input file
 	lines, err := readLinesFromFiles(infile)
 	if err != nil {
 		fmt.Println("Could not read URL File:", err)
 		return
 	}
 
-	// get all the urls (second argument in CSV):
+	// parse all the urls from the lines of the input file (second argument in CSV):
 	var urls []string
 	for i, l := range lines {
 		if i == 0 {
@@ -51,7 +51,7 @@ func main() {
 		urls = append(urls, u)
 	}
 
-	// open our outputfile
+	// open the outputfile. truncate and append.
 	out, err := os.Create(outfile)
 	if err != nil {
 		fmt.Println("Could not open output file:", err)
@@ -83,7 +83,7 @@ func usage() {
 	fmt.Println("\t" + os.Args[0] + " SEARCH_TERM")
 }
 
-// opens a file and returns the entire contents split as an array
+// opens a file and returns the entire contents into an array split by lines
 func readLinesFromFiles(path string) ([]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -115,7 +115,7 @@ func parallelSearch(urls []string, searchTerm string, maxThreads int) []SearchRe
 
 	regexp := regexp.MustCompile("(?i)\\b+" + searchTerm + "\\b+")
 
-	// Collect data
+	// This thread collects data from the workers
 	go func() {
 		i := 0
 		sr := make([]SearchResult, 0, len(urls))
@@ -140,7 +140,7 @@ func parallelSearch(urls []string, searchTerm string, maxThreads int) []SearchRe
 	}
 	// push the data to the workers:
 	for _, u := range urls {
-		fanout <- "http://" + u
+		fanout <- "http://" + u //FIXME: this is not the best place to add http://
 	}
 	close(fanout)
 
